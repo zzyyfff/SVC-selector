@@ -1,15 +1,16 @@
 'use strict'
 
+require('node-json-color-stringify')
+const fs = require('fs')
 const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 })
 
-const fs = require('fs')
-const rawdata = fs.readFileSync('SystemViewController.json')
-const sysViewController = JSON.parse(rawdata)
-require('node-json-color-stringify')
 const SEPARATOR = '===================================================================================='
+
+const rawdata = fs.readFileSync('SystemViewController.json')
+const systemViewController = JSON.parse(rawdata)
 
 const main = (running = true) => {
   if (!running) return
@@ -24,10 +25,10 @@ const main = (running = true) => {
       } else if (selectorString !== '') {
         const [selectors, keys] = parseSelectorString(selectorString)
 
-        selectedViewsIntoArray(selectors, keys, sysViewController, outputArray)
+        selectedViewsIntoArray(selectors, keys, systemViewController, outputArray)
         console.log(pluralize`Selector string '${selectorString}' returned ${outputArray.length} reseult`)
 
-        return displayPromptPromise(outputArray, selectorString)
+        if (outputArray.length > 0) return displayPromptPromise(outputArray, selectorString)
       }
     })
     .then(() => main(running))
@@ -57,24 +58,28 @@ const displayPromptPromise = (outputArray, selectorString) => {
   })
 }
 
-function selectedViewsIntoArray (selectors, keys, obj, arr) {
-  if (selectors.length === 1) {
-    if (obj[keys[0]] === selectors[0] && !arr.includes(obj)) arr.push(obj)
-    if (Array.isArray(obj[keys[0]]) && obj[keys[0]].includes(selectors[0]) && !arr.includes(obj)) arr.push(obj)
-  } else {
-    if (obj[keys[0]] === selectors[0]) selectedViewsIntoArray(selectors.slice(1), keys.slice(1), obj, arr)
-    if (Array.isArray(obj[keys[0]]) && obj[keys[0]].includes(selectors[0])) selectedViewsIntoArray(selectors.slice(1), keys.slice(1), obj, arr)
+function selectedViewsIntoArray (selectors, keys, obj, outputArray, isChildNode = true) {
+  if (matchesSelector(selectors, keys, obj) && isChildNode) {
+    if (selectors.length === 1) {
+      if (!outputArray.includes(obj)) outputArray.push(obj)
+    } else {
+      selectedViewsIntoArray(selectors.slice(1), keys.slice(1), obj, outputArray, false)
+    }
   }
 
   if (obj['subviews'] && obj['subviews'].length > 0) {
-    obj['subviews'].forEach(element => selectedViewsIntoArray(selectors, keys, element, arr))
+    obj['subviews'].forEach(element => selectedViewsIntoArray(selectors, keys, element, outputArray))
   }
   if (obj['contentView'] &&
       obj['contentView']['subviews'] &&
       obj['contentView']['subviews'].length > 0) {
-    obj['contentView']['subviews'].forEach(element => selectedViewsIntoArray(selectors, keys, element, arr))
+    obj['contentView']['subviews'].forEach(element => selectedViewsIntoArray(selectors, keys, element, outputArray))
   }
-  if (obj['control']) selectedViewsIntoArray(selectors, keys, obj['control'], arr)
+  if (obj['control']) selectedViewsIntoArray(selectors, keys, obj['control'], outputArray)
+}
+
+function matchesSelector (selectors, keys, obj) {
+  return obj[keys[0]] === selectors[0] || (Array.isArray(obj[keys[0]]) && obj[keys[0]].includes(selectors[0]))
 }
 
 function parseSelectorString (selectorString) {
@@ -114,7 +119,7 @@ function displayViewsAsJson (outputArray, selectorString) {
 
 function displayAll () {
   console.log(SEPARATOR)
-  console.log(JSON.colorStringify(sysViewController, null, 2))
+  console.log(JSON.colorStringify(systemViewController, null, 2))
   console.log(SEPARATOR)
 
   console.log('>> Complete view hierarchy.')
