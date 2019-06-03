@@ -6,27 +6,54 @@ const readline = require('readline').createInterface({
 })
 
 const fs = require('fs')
-let rawdata = fs.readFileSync('SystemViewController.json')
-let sysViewController = JSON.parse(rawdata)
+const rawdata = fs.readFileSync('SystemViewController.json')
+const sysViewController = JSON.parse(rawdata)
 require('node-json-color-stringify')
 const SEPARATOR = '===================================================================================='
 
-const prompt = () => {
+const main = (running = true) => {
+  if (!running) return
   const outputArray = []
-  readline.question(`SVC-selector> `, (selectorString) => {
-    let running = true
-    selectorString = selectorString.trim()
-    if (selectorString === '*') {
-      displayAll()
-    } else if (selectorString === 'exit') {
-      running = false
-      readline.close()
-    } else if (selectorString[0] !== '') {
-      const [selectors, keys] = parseSelectorString(selectorString)
-      selectedViewsIntoArray(selectors, keys, sysViewController, outputArray)
-      displayViewsAsJson(outputArray, selectorString)
-    }
-    if (running) prompt()
+  svcPromptPromise()
+    .then(selectorString => {
+      if (selectorString === '*') {
+        displayAll()
+      } else if (selectorString === 'exit') {
+        running = false
+        readline.close()
+      } else if (selectorString !== '') {
+        const [selectors, keys] = parseSelectorString(selectorString)
+
+        selectedViewsIntoArray(selectors, keys, sysViewController, outputArray)
+        console.log(pluralize`Selector string '${selectorString}' returned ${outputArray.length} reseult`)
+
+        return displayPromptPromise(outputArray, selectorString)
+      }
+    })
+    .then(() => main(running))
+}
+
+const svcPromptPromise = () => {
+  return new Promise((resolve, reject) => {
+    readline.question(`SVC-selector> `, (selectorString) => {
+      selectorString = selectorString.trim()
+      resolve(selectorString)
+    })
+  })
+}
+
+const displayPromptPromise = (outputArray, selectorString) => {
+  return new Promise((resolve, reject) => {
+    readline.question(`Display each result as JSON? (Y/n) `, (answer) => {
+      if (answer === 'Y' ||
+          answer === 'y' ||
+          answer === 'Yes' ||
+          answer === 'yes') {
+        displayViewsAsJson(outputArray, selectorString)
+      }
+      readline.pause()
+      resolve()
+    })
   })
 }
 
@@ -68,35 +95,30 @@ function parseSelectorString (selectorString) {
   return [selectors, keys]
 }
 
-function displayViewsAsJson (outputArray, selectorString) {
-  console.log(`Selector string '${selectorString}' returned ${outputArray.length} reseults`)
+function pluralize (strings, selectorString, outputArrayLength) {
+  let finalS = 's'
+  if (outputArrayLength === 1) finalS = ''
+  return `${strings[0]}${selectorString}${strings[1]}${outputArrayLength}${strings[2]}${finalS}.`
+}
 
-  readline.question(`Display each result as JSON? (Y/n) `, (answer) => {
-    if (answer === 'Y' ||
-        answer === 'y' ||
-        answer === 'Yes' ||
-        answer === 'yes') {
-      console.log(SEPARATOR)
-      outputArray.forEach(element => {
-        console.log(JSON.colorStringify(element, null, 2))
-        console.log(SEPARATOR)
-      })
-      console.log(`>> Displayed ${outputArray.length} reseults for ${selectorString}'`)
-      console.log('')
-      readline.pause()
-      prompt()
-    }
-    readline.pause()
-    prompt()
+function displayViewsAsJson (outputArray, selectorString) {
+  console.log(SEPARATOR)
+  outputArray.forEach(element => {
+    console.log(JSON.colorStringify(element, null, 2))
+    console.log(SEPARATOR)
   })
+
+  console.log(`>> Displayed ${outputArray.length} reseults for ${selectorString}'`)
+  console.log('')
 }
 
 function displayAll () {
   console.log(SEPARATOR)
   console.log(JSON.colorStringify(sysViewController, null, 2))
   console.log(SEPARATOR)
-  console.log('Complete view hierarchy.')
+
+  console.log('>> Complete view hierarchy.')
   console.log('')
 }
 
-prompt()
+main()
