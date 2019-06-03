@@ -23,10 +23,10 @@ const main = (running = true) => {
         running = false
         readline.close()
       } else if (selectorString !== '') {
-        const [selectors, keys] = parseSelectorString(selectorString)
+        const selectorChain = parseSelectorString(selectorString)
 
-        selectedViewsIntoArray(selectors, keys, systemViewController, outputArray)
-        console.log(pluralize`Selector string '${selectorString}' returned ${outputArray.length} reseult`)
+        selectedViewsIntoArray(selectorChain, systemViewController, outputArray)
+        console.log(pluralizeResult`Selector string '${selectorString}' returned ${outputArray.length} result`)
 
         if (outputArray.length > 0) return displayPromptPromise(outputArray, selectorString)
       }
@@ -58,28 +58,32 @@ const displayPromptPromise = (outputArray, selectorString) => {
   })
 }
 
-function selectedViewsIntoArray (selectors, keys, obj, outputArray, isChildNode = true) {
-  if (matchesSelector(selectors, keys, obj) && isChildNode) {
+function selectedViewsIntoArray (selectorChain, viewObj, outputArray, isChildNode = true) {
+  // Base case and traversing the selectorChain
+  const [selectors, keys] = selectorChain
+  if (matchesSelector(selectorChain, viewObj) && isChildNode) {
     if (selectors.length === 1) {
-      if (!outputArray.includes(obj)) outputArray.push(obj)
+      if (!outputArray.includes(viewObj)) outputArray.push(viewObj)
     } else {
-      selectedViewsIntoArray(selectors.slice(1), keys.slice(1), obj, outputArray, false)
+      selectedViewsIntoArray([selectors.slice(1), keys.slice(1)], viewObj, outputArray, false)
     }
   }
 
-  if (obj['subviews'] && obj['subviews'].length > 0) {
-    obj['subviews'].forEach(element => selectedViewsIntoArray(selectors, keys, element, outputArray))
+  // Traverse to child nodes of viewObj
+  if (viewObj['subviews'] && viewObj['subviews'].length > 0) {
+    viewObj['subviews'].forEach(subView => selectedViewsIntoArray(selectorChain, subView, outputArray))
   }
-  if (obj['contentView'] &&
-      obj['contentView']['subviews'] &&
-      obj['contentView']['subviews'].length > 0) {
-    obj['contentView']['subviews'].forEach(element => selectedViewsIntoArray(selectors, keys, element, outputArray))
+  if (viewObj['contentView'] &&
+      viewObj['contentView']['subviews'] &&
+      viewObj['contentView']['subviews'].length > 0) {
+    viewObj['contentView']['subviews'].forEach(subView => selectedViewsIntoArray(selectorChain, subView, outputArray))
   }
-  if (obj['control']) selectedViewsIntoArray(selectors, keys, obj['control'], outputArray)
+  if (viewObj['control']) selectedViewsIntoArray(selectorChain, viewObj['control'], outputArray)
 }
 
-function matchesSelector (selectors, keys, obj) {
-  return obj[keys[0]] === selectors[0] || (Array.isArray(obj[keys[0]]) && obj[keys[0]].includes(selectors[0]))
+function matchesSelector (selectorChain, viewObj) {
+  const [selectors, keys] = selectorChain
+  return viewObj[keys[0]] === selectors[0] || (Array.isArray(viewObj[keys[0]]) && viewObj[keys[0]].includes(selectors[0]))
 }
 
 function parseSelectorString (selectorString) {
@@ -96,14 +100,13 @@ function parseSelectorString (selectorString) {
       keys.push('class')
     }
   }
-
   return [selectors, keys]
 }
 
-function pluralize (strings, selectorString, outputArrayLength) {
-  let finalS = 's'
-  if (outputArrayLength === 1) finalS = ''
-  return `${strings[0]}${selectorString}${strings[1]}${outputArrayLength}${strings[2]}${finalS}.`
+function pluralizeResult (strings, exp1, exp2) {
+  let output = `${strings[0]}${exp1}${strings[1]}${exp2}${strings[2]}.`
+  if (exp1 === 1 || exp2 === 1) return output
+  return output.replace('result', 'results')
 }
 
 function displayViewsAsJson (outputArray, selectorString) {
@@ -112,8 +115,7 @@ function displayViewsAsJson (outputArray, selectorString) {
     console.log(JSON.colorStringify(element, null, 2))
     console.log(SEPARATOR)
   })
-
-  console.log(`>> Displayed ${outputArray.length} reseults for ${selectorString}'`)
+  console.log(pluralizeResult`>> Displayed ${outputArray.length} result for '${selectorString}'`)
   console.log('')
 }
 
@@ -121,8 +123,7 @@ function displayAll () {
   console.log(SEPARATOR)
   console.log(JSON.colorStringify(systemViewController, null, 2))
   console.log(SEPARATOR)
-
-  console.log('>> Complete view hierarchy.')
+  console.log('>> Displayed complete view hierarchy.')
   console.log('')
 }
 
