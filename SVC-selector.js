@@ -83,22 +83,40 @@ function selectedViewsIntoArray (selectorChain, viewObj, outputArray, isChildNod
 
 function matchesSelector (selectorChain, viewObj) {
   const [selectors, keys] = selectorChain
-  return viewObj[keys[0]] === selectors[0] || (Array.isArray(viewObj[keys[0]]) && viewObj[keys[0]].includes(selectors[0]))
+  const [compoundSelectors, compoundKeys] = [selectors[0], keys[0]]
+  let match = true
+  for (var i = 0; i < compoundSelectors.length; i++) {
+    const viewObjProperty = viewObj[compoundKeys[i]]
+    const selector = compoundSelectors[i]
+    match = match &&
+            (viewObjProperty === selector ||
+            (Array.isArray(viewObjProperty) && viewObjProperty.includes(selector)))
+  }
+  return match
 }
 
 function parseSelectorString (selectorString) {
   const [selectors, keys] = [selectorString.split(' '), []]
 
   for (let i = 0; i < selectors.length; i++) {
+    keys[i] = []
     if (selectors[i][0] === '.') {
-      keys.push('classNames')
+      keys[i].push('classNames')
       selectors[i] = selectors[i].slice(1)
     } else if (selectors[i][0] === '#') {
-      keys.push('identifier')
+      keys[i].push('identifier')
       selectors[i] = selectors[i].slice(1)
     } else {
-      keys.push('class')
+      keys[i].push('class')
     }
+    for (const char of selectors[i]) {
+      if (char === '.') {
+        keys[i].push('classNames')
+      } else if (char === '#') {
+        keys[i].push('identifier')
+      }
+    }
+    selectors[i] = selectors[i].split(/[.#]+/).filter(e => e !== '')
   }
   return [selectors, keys]
 }

@@ -16,4 +16,5 @@
     1. For a view identifier, prefix the name with a `#`, e.g. `#videoMode`
 4. If any matching views are found, you'll be given the option of displaying them.
 5. You may also chain selectors by entering multiple selectors separated by a **single** space, e.g. `.container Box` will match all views with class `Box` which also have an ancestor of `.container`
-6. Enter `exit` to exit the program
+6. Compound selectors are supported. This means you may combine selectors by entering multiple selectors **not** separated by any space, e.g. `StackView.accessoryView` will match all views with class `StackView` **AND** the className `accessoryView`. These can be part of chains as well, e.g. `StackView.accessoryView #apply`
+7. Enter `exit` to exit the program
